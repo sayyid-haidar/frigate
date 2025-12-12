@@ -1,2 +1,14 @@
+# Rockchip RKNN dependencies
 hide-warnings == 0.17
-rknn-toolkit-lite2 @ https://github.com/MarcA711/rknn-toolkit2/releases/download/v1.5.2/rknn_toolkit_lite2-1.5.2-cp39-cp39-linux_aarch64.whl
+
+# RKNN-Toolkit-Lite2 v2.3.0 - Latest stable version with improved performance
+# Supports RK3588/RK3588S, RK3568, RK3566, RK3562
+# Download from airockchip repository for latest features
+rknn-toolkit-lite2 @ https://github.com/airockchip/rknn-toolkit2/releases/download/v2.3.0/rknn_toolkit_lite2-2.3.0-cp39-cp39-linux_aarch64.whl
+
+# Note: If the above URL fails, you can try these alternatives:
+# Legacy v1.6.0 (more stable but fewer features):
+# rknn-toolkit-lite2 @ https://github.com/rockchip-linux/rknn-toolkit2/releases/download/v1.6.0/rknn_toolkit_lite2-1.6.0-cp39-cp39-linux_aarch64.whl
+# 
+# MarcA711 fork v1.5.2 (original Frigate version):
+# rknn-toolkit-lite2 @ https://github.com/MarcA711/rknn-toolkit2/releases/download/v1.5.2/rknn_toolkit_lite2-1.5.2-cp39-cp39-linux_aarch64.whl

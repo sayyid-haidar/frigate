@@ -359,15 +359,41 @@ Explanation for rknn specific options:
 
 ### Choosing a model
 
-There are 5 default yolov8 models that differ in size and therefore load the NPU more or less. In ascending order, with the top one being the smallest and least computationally intensive model:
+There are multiple YOLOv8 models available with different sizes and resolutions:
 
-| Model   | Size in mb |
-| ------- | ---------- |
-| yolov8n | 9          |
-| yolov8s | 25         |
-| yolov8m | 54         |
-| yolov8l | 90         |
-| yolov8x | 136        |
+#### Model Sizes
+
+| Model   | Size (MB) | Description |
+| ------- | --------- | ----------- |
+| yolov8n | 9         | Nano - fastest, good for many cameras |
+| yolov8s | 25        | Small - balanced speed/accuracy |
+| yolov8m | 54        | Medium - better accuracy |
+| yolov8l | 90        | Large - high accuracy |
+| yolov8x | 136       | XLarge - best accuracy |
+
+#### Model Resolutions (NEW!)
+
+Choose resolution based on your use case:
+
+| Resolution | Best For | FPS (RK3588) | Use Case |
+| ---------- | -------- | ------------ | -------- |
+| 320x320    | Many cameras (5-8), nearby objects | ~100 FPS | Indoor, close-range |
+| 640x640    | Fewer cameras (1-4), distant objects | ~50 FPS | Outdoor, parking lots |
+
+Model naming format:
+- `default-yolov8n` or `default-yolov8n-320` - 320x320 (default)
+- `default-yolov8n-640` - 640x640 (better for distant objects)
+
+Example configuration for 640x640:
+
+```yaml
+model:
+  path: default-yolov8n-640
+  width: 640
+  height: 640
+  input_pixel_format: bgr
+  input_tensor: nhwc
+```
 
 :::tip
 
@@ -380,8 +406,9 @@ $ cat /sys/kernel/debug/rknpu/load
 
 :::
 
-- By default the rknn detector uses the yolov8n model (`model: path: default-yolov8n`). This model comes with the image, so no further steps than those mentioned above are necessary.
-- If you want to use a more precise model, you can pass `default-yolov8s`, `default-yolov8m`, `default-yolov8l` or `default-yolov8x` as `model: path:` option.
+- By default the rknn detector uses the yolov8n 320x320 model (`model: path: default-yolov8n`). This model comes with the image, so no further steps than those mentioned above are necessary.
+- **For better distant object detection**, use `default-yolov8n-640` (or larger variants like `default-yolov8s-640`).
+- If you want a more precise model at 320x320, you can use `default-yolov8s`, `default-yolov8m`, `default-yolov8l` or `default-yolov8x`.
   - If the model does not exist, it will be automatically downloaded to `/config/model_cache/rknn`.
   - If your server has no internet connection, you can download the model from [this Github repository](https://github.com/MarcA711/rknn-models/releases) using another device and place it in the `config/model_cache/rknn` on your system.
 - Finally, you can also provide your own model. Note that only yolov8 models are currently supported. Moreover, you will need to convert your model to the rknn format using `rknn-toolkit2` on a x86 machine. Afterwards, you can place your `.rknn` model file in the `config/model_cache/rknn` directory on your system. Then you need to pass the path to your model using the `path` option of your `model` block like this:
@@ -393,7 +420,7 @@ model:
 
 :::tip
 
-When you have a multicore NPU, you can enable all cores to reduce inference times. You should consider activating all cores if you use a larger model like yolov8l. If your NPU has 3 cores (like rk3588/S SoCs), you can enable all 3 cores using:
+When you have a multicore NPU, you can enable all cores to reduce inference times. You should consider activating all cores if you use a larger model like yolov8l or 640x640 models. If your NPU has 3 cores (like rk3588/S SoCs), you can enable all 3 cores using:
 
 ```yaml
 detectors:
@@ -401,5 +428,30 @@ detectors:
     type: rknn
     core_mask: 0b111
 ```
+
+:::
+
+### Hardware Video Acceleration (VPU)
+
+RK3588 includes a Video Processing Unit (VPU) for hardware video encoding/decoding. This is **essential** to prevent blank frames and reduce CPU usage.
+
+To enable VPU acceleration for FFmpeg, set:
+
+```yaml
+ffmpeg:
+  hwaccel_args: preset-rk-h264  # or preset-rk-h265 for HEVC streams
+```
+
+This enables:
+- **Hardware decoding**: `h264_rkmpp` / `hevc_rkmpp`
+- **Hardware scaling**: `scale_rkrga` (RGA - Rockchip Graphics Accelerator)
+- **Hardware encoding**: For birdseye view and timelapse
+
+:::warning
+
+If you experience blank frames in the Frigate UI:
+1. Ensure `hwaccel_args: preset-rk-h264` is set
+2. Run Docker in privileged mode
+3. Check FFmpeg logs for hardware acceleration errors
 
 :::

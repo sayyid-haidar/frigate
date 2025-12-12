@@ -18,15 +18,38 @@ RUN --mount=type=bind,from=rk-wheels,source=/rk-wheels,target=/deps/rk-wheels \
 WORKDIR /opt/frigate/
 COPY --from=rootfs / /
 
-ADD https://github.com/MarcA711/rknpu2/releases/download/v1.5.2/librknnrt_rk356x.so /usr/lib/
-ADD https://github.com/MarcA711/rknpu2/releases/download/v1.5.2/librknnrt_rk3588.so /usr/lib/
+# RKNN Runtime Libraries v2.3.0 (latest stable)
+# These libraries provide NPU acceleration for RK3588/RK356x series
+ADD https://github.com/airockchip/rknn-toolkit2/releases/download/v2.3.0/librknnrt_rk356x.so /usr/lib/
+ADD https://github.com/airockchip/rknn-toolkit2/releases/download/v2.3.0/librknnrt_rk3588.so /usr/lib/
 
+# Fallback: Legacy runtime libraries (if above URLs fail during build)
+# ADD https://github.com/MarcA711/rknpu2/releases/download/v1.6.0/librknnrt_rk356x.so /usr/lib/
+# ADD https://github.com/MarcA711/rknpu2/releases/download/v1.6.0/librknnrt_rk3588.so /usr/lib/
+
+# Default YOLOv8n 320x320 models (ships with image for quick start)
 ADD https://github.com/MarcA711/rknn-models/releases/download/v1.5.2-rk3562/yolov8n-320x320-rk3562.rknn /models/rknn/
 ADD https://github.com/MarcA711/rknn-models/releases/download/v1.5.2-rk3566/yolov8n-320x320-rk3566.rknn /models/rknn/
 ADD https://github.com/MarcA711/rknn-models/releases/download/v1.5.2-rk3568/yolov8n-320x320-rk3568.rknn /models/rknn/
 ADD https://github.com/MarcA711/rknn-models/releases/download/v1.5.2-rk3588/yolov8n-320x320-rk3588.rknn /models/rknn/
 
+# Optional: Pre-download 640x640 models for better accuracy (larger file size)
+# These will be auto-downloaded if configured but not present
+# Uncomment if you want to include in base image:
+# ADD https://github.com/MarcA711/rknn-models/releases/download/v1.5.2-rk3588/yolov8n-640x640-rk3588.rknn /models/rknn/
+# ADD https://github.com/MarcA711/rknn-models/releases/download/v1.5.2-rk3588/yolov8s-640x640-rk3588.rknn /models/rknn/
+
+# Rockchip FFmpeg with MPP (Media Process Platform) and RGA support
+# This enables hardware video encoding/decoding using VPU
 RUN rm -rf /usr/lib/btbn-ffmpeg/bin/ffmpeg
 RUN rm -rf /usr/lib/btbn-ffmpeg/bin/ffprobe
-ADD --chmod=111 https://github.com/MarcA711/Rockchip-FFmpeg-Builds/releases/download/6.0-1/ffmpeg /usr/lib/btbn-ffmpeg/bin/
-ADD --chmod=111 https://github.com/MarcA711/Rockchip-FFmpeg-Builds/releases/download/6.0-1/ffprobe /usr/lib/btbn-ffmpeg/bin/
+
+# FFmpeg 6.1 with full Rockchip hardware acceleration:
+# - h264_rkmpp / hevc_rkmpp (hardware decode/encode via VPU)
+# - scale_rkrga (hardware scaling via RGA)
+ADD --chmod=111 https://github.com/MarcA711/Rockchip-FFmpeg-Builds/releases/download/6.1-2/ffmpeg /usr/lib/btbn-ffmpeg/bin/
+ADD --chmod=111 https://github.com/MarcA711/Rockchip-FFmpeg-Builds/releases/download/6.1-2/ffprobe /usr/lib/btbn-ffmpeg/bin/
+
+# Set environment variable to indicate Rockchip build
+ENV FRIGATE_ROCKCHIP=1
+ENV LIBAVFORMAT_VERSION_MAJOR=60

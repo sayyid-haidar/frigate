@@ -24,13 +24,32 @@ DETECTOR_KEY = "rknn"
 
 supported_socs = ["rk3562", "rk3566", "rk3568", "rk3588"]
 
-yolov8_suffix = {
-    "default-yolov8n": "n",
-    "default-yolov8s": "s",
-    "default-yolov8m": "m",
-    "default-yolov8l": "l",
-    "default-yolov8x": "x",
+# Updated model definitions with support for multiple resolutions
+# Format: model_name -> (suffix, supported_sizes)
+yolov8_models = {
+    # 320x320 models (legacy naming for backward compatibility)
+    "default-yolov8n": {"suffix": "n", "size": 320},
+    "default-yolov8s": {"suffix": "s", "size": 320},
+    "default-yolov8m": {"suffix": "m", "size": 320},
+    "default-yolov8l": {"suffix": "l", "size": 320},
+    "default-yolov8x": {"suffix": "x", "size": 320},
+    # 320x320 models (explicit size)
+    "default-yolov8n-320": {"suffix": "n", "size": 320},
+    "default-yolov8s-320": {"suffix": "s", "size": 320},
+    "default-yolov8m-320": {"suffix": "m", "size": 320},
+    "default-yolov8l-320": {"suffix": "l", "size": 320},
+    "default-yolov8x-320": {"suffix": "x", "size": 320},
+    # 640x640 models (better accuracy for distant objects)
+    "default-yolov8n-640": {"suffix": "n", "size": 640},
+    "default-yolov8s-640": {"suffix": "s", "size": 640},
+    "default-yolov8m-640": {"suffix": "m", "size": 640},
+    "default-yolov8l-640": {"suffix": "l", "size": 640},
+    "default-yolov8x-640": {"suffix": "x", "size": 640},
 }
+
+# RKNN model download base URL (updated to latest version)
+RKNN_MODEL_VERSION = "v2.0.0"
+RKNN_MODEL_BASE_URL = "https://github.com/airockchip/rknn-model-zoo/releases/download"
 
 
 class RknnDetectorConfig(BaseDetectorConfig):
@@ -55,6 +74,7 @@ class Rknn(DetectionApi):
             logger.error("Make sure to run docker in privileged mode.")
             raise Exception("Make sure to run docker in privileged mode.")
 
+        self.soc = soc
         if soc not in supported_socs:
             logger.error(
                 "Your SoC is not supported. Your SoC is: {}. Currently these SoCs are supported: {}.".format(
@@ -78,37 +98,77 @@ class Rknn(DetectionApi):
         self.height = config.model.height
         self.width = config.model.width
 
-        if self.model_path in yolov8_suffix:
+        if self.model_path in yolov8_models:
+            model_info = yolov8_models[self.model_path]
+            model_suffix = model_info["suffix"]
+            model_size = model_info["size"]
+
+            # Check if using default 320 model that ships with image
             if self.model_path == "default-yolov8n":
                 self.model_path = "/models/rknn/yolov8n-320x320-{soc}.rknn".format(
                     soc=soc
                 )
             else:
-                model_suffix = yolov8_suffix[self.model_path]
-                self.model_path = (
-                    "/config/model_cache/rknn/yolov8{suffix}-320x320-{soc}.rknn".format(
-                        suffix=model_suffix, soc=soc
-                    )
+                self.model_path = "/config/model_cache/rknn/yolov8{suffix}-{size}x{size}-{soc}.rknn".format(
+                    suffix=model_suffix, size=model_size, soc=soc
                 )
 
                 os.makedirs("/config/model_cache/rknn", exist_ok=True)
                 if not os.path.isfile(self.model_path):
                     logger.info(
-                        "Downloading yolov8{suffix} model.".format(suffix=model_suffix)
+                        "Downloading yolov8{suffix} {size}x{size} model for {soc}...".format(
+                            suffix=model_suffix, size=model_size, soc=soc
+                        )
                     )
-                    urllib.request.urlretrieve(
-                        "https://github.com/MarcA711/rknn-models/releases/download/v1.5.2-{soc}/yolov8{suffix}-320x320-{soc}.rknn".format(
-                            soc=soc, suffix=model_suffix
+                    # Try new URL format first, fall back to legacy
+                    download_urls = [
+                        # New airockchip model zoo format
+                        "{base}/{version}/yolov8{suffix}-{size}x{size}-{soc}.rknn".format(
+                            base=RKNN_MODEL_BASE_URL,
+                            version=RKNN_MODEL_VERSION,
+                            suffix=model_suffix,
+                            size=model_size,
+                            soc=soc,
                         ),
-                        self.model_path,
-                    )
+                        # Legacy MarcA711 format for 320x320
+                        "https://github.com/MarcA711/rknn-models/releases/download/v1.6.0-{soc}/yolov8{suffix}-{size}x{size}-{soc}.rknn".format(
+                            soc=soc, suffix=model_suffix, size=model_size
+                        ),
+                        # Fallback to v1.5.2
+                        "https://github.com/MarcA711/rknn-models/releases/download/v1.5.2-{soc}/yolov8{suffix}-{size}x{size}-{soc}.rknn".format(
+                            soc=soc, suffix=model_suffix, size=model_size
+                        ),
+                    ]
 
-            if (config.model.width != 320) or (config.model.height != 320):
+                    download_success = False
+                    for url in download_urls:
+                        try:
+                            logger.info(f"Trying to download from: {url}")
+                            urllib.request.urlretrieve(url, self.model_path)
+                            download_success = True
+                            logger.info(f"Successfully downloaded model from: {url}")
+                            break
+                        except Exception as e:
+                            logger.warning(f"Failed to download from {url}: {e}")
+                            continue
+
+                    if not download_success:
+                        logger.error(
+                            "Failed to download model. Please download manually and place in /config/model_cache/rknn/"
+                        )
+                        raise Exception("Failed to download RKNN model")
+
+            # Validate model dimensions match config
+            if (config.model.width != model_size) or (
+                config.model.height != model_size
+            ):
                 logger.error(
-                    "Make sure to set the model width and heigth to 320 in your config.yml."
+                    f"Model size mismatch! Model '{self.model_path}' requires {model_size}x{model_size}, "
+                    f"but config specifies {config.model.width}x{config.model.height}. "
+                    f"Please set model width and height to {model_size} in your config.yml."
                 )
                 raise Exception(
-                    "Make sure to set the model width and heigth to 320 in your config.yml."
+                    f"Make sure to set the model width and height to {model_size} in your config.yml."
                 )
 
             if config.model.input_pixel_format != "bgr":
@@ -136,6 +196,11 @@ class Rknn(DetectionApi):
             logger.error(
                 "Error initializing rknn runtime. Do you run docker in privileged mode?"
             )
+
+        logger.info(
+            f"RKNN detector initialized: SoC={soc}, Model={self.model_path}, "
+            f"Size={self.width}x{self.height}, CoreMask={self.core_mask}"
+        )
 
     def __del__(self):
         self.rknn.release()

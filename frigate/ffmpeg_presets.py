@@ -65,8 +65,9 @@ PRESETS_HW_ACCEL_DECODE = {
     "preset-nvidia-mjpeg": "-hwaccel cuda -hwaccel_output_format cuda",
     "preset-jetson-h264": "-c:v h264_nvmpi -resize {1}x{2}",
     "preset-jetson-h265": "-c:v hevc_nvmpi -resize {1}x{2}",
-    "preset-rk-h264": "-c:v h264_rkmpp_decoder",
-    "preset-rk-h265": "-c:v hevc_rkmpp_decoder",
+    # Rockchip MPP hardware decoder (uses VPU)
+    "preset-rk-h264": "-hwaccel rkmpp -hwaccel_output_format drm_prime -c:v h264_rkmpp",
+    "preset-rk-h265": "-hwaccel rkmpp -hwaccel_output_format drm_prime -c:v hevc_rkmpp",
 }
 
 PRESETS_HW_ACCEL_SCALE = {
@@ -79,8 +80,9 @@ PRESETS_HW_ACCEL_SCALE = {
     "preset-nvidia-h265": "-r {0} -vf fps={0},scale_cuda=w={1}:h={2}:format=nv12,hwdownload,format=nv12,format=yuv420p",
     "preset-jetson-h264": "-r {0}",  # scaled in decoder
     "preset-jetson-h265": "-r {0}",  # scaled in decoder
-    "preset-rk-h264": "-r {0} -vf fps={0},scale={1}:{2}",
-    "preset-rk-h265": "-r {0} -vf fps={0},scale={1}:{2}",
+    # Rockchip RGA hardware scaler - much faster than CPU scaling
+    "preset-rk-h264": "-r {0} -vf fps={0},scale_rkrga=w={1}:h={2}:format=nv12,hwdownload,format=nv12,format=yuv420p",
+    "preset-rk-h265": "-r {0} -vf fps={0},scale_rkrga=w={1}:h={2}:format=nv12,hwdownload,format=nv12,format=yuv420p",
     "default": "-r {0} -vf fps={0},scale={1}:{2}",
 }
 
@@ -94,8 +96,9 @@ PRESETS_HW_ACCEL_ENCODE_BIRDSEYE = {
     "preset-nvidia-h265": "ffmpeg -hide_banner {0} -c:v h264_nvenc -g 50 -profile:v high -level:v auto -preset:v p2 -tune:v ll {1}",
     "preset-jetson-h264": "ffmpeg -hide_banner {0} -c:v h264_nvmpi -profile high {1}",
     "preset-jetson-h265": "ffmpeg -hide_banner {0} -c:v h264_nvmpi -profile high {1}",
-    "preset-rk-h264": "ffmpeg -hide_banner {0} -c:v h264_rkmpp_encoder -profile high {1}",
-    "preset-rk-h265": "ffmpeg -hide_banner {0} -c:v hevc_rkmpp_encoder -profile high {1}",
+    # Rockchip MPP hardware encoder (uses VPU) - significantly reduces CPU usage
+    "preset-rk-h264": "ffmpeg -hide_banner {0} -c:v h264_rkmpp -g 50 -profile:v high -level:v 4.1 -qp_init 24 {1}",
+    "preset-rk-h265": "ffmpeg -hide_banner {0} -c:v hevc_rkmpp -g 50 -qp_init 24 {1}",
     "default": "ffmpeg -hide_banner {0} -c:v libx264 -g 50 -profile:v high -level:v 4.1 -preset:v superfast -tune:v zerolatency {1}",
 }
 
@@ -109,8 +112,9 @@ PRESETS_HW_ACCEL_ENCODE_TIMELAPSE = {
     "preset-nvidia-h265": "ffmpeg -hide_banner -hwaccel cuda -hwaccel_output_format cuda -extra_hw_frames 8 {0} -c:v hevc_nvenc {1}",
     "preset-jetson-h264": "ffmpeg -hide_banner {0} -c:v h264_nvmpi -profile high {1}",
     "preset-jetson-h265": "ffmpeg -hide_banner {0} -c:v hevc_nvmpi -profile high {1}",
-    "preset-rk-h264": "ffmpeg -hide_banner {0} -c:v h264_rkmpp_encoder -profile high {1}",
-    "preset-rk-h265": "ffmpeg -hide_banner {0} -c:v hevc_rkmpp_encoder -profile high {1}",
+    # Rockchip MPP hardware encoder for timelapse
+    "preset-rk-h264": "ffmpeg -hide_banner {0} -c:v h264_rkmpp -profile:v high -level:v 4.1 {1}",
+    "preset-rk-h265": "ffmpeg -hide_banner {0} -c:v hevc_rkmpp {1}",
     "default": "ffmpeg -hide_banner {0} -c:v libx264 -preset:v ultrafast -tune:v zerolatency {1}",
 }
 

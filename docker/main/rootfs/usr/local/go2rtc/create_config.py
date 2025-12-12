@@ -114,18 +114,24 @@ if int(os.environ["LIBAVFORMAT_VERSION_MAJOR"]) < 59:
         ] = "-fflags nobuffer -flags low_delay -stimeout 5000000 -user_agent go2rtc/ffmpeg -rtsp_transport tcp -i {input}"
 
 # add hardware acceleration presets for rockchip devices
-# may be removed if frigate uses a go2rtc version that includes these presets
+# Updated encoder names for compatibility with latest FFmpeg MPP builds
 if go2rtc_config.get("ffmpeg") is None:
     go2rtc_config["ffmpeg"] = {
-        "h264/rk": "-c:v h264_rkmpp_encoder -g 50 -bf 0",
-        "h265/rk": "-c:v hevc_rkmpp_encoder -g 50 -bf 0",
+        # Hardware encode using VPU (significantly reduces CPU usage)
+        "h264/rk": "-c:v h264_rkmpp -g 50 -bf 0 -profile:v high -level:v 4.1",
+        "h265/rk": "-c:v hevc_rkmpp -g 50 -bf 0",
+        # Hardware decode presets
+        "h264/rk/decode": "-c:v h264_rkmpp",
+        "h265/rk/decode": "-c:v hevc_rkmpp",
     }
 else:
     if go2rtc_config["ffmpeg"].get("h264/rk") is None:
-        go2rtc_config["ffmpeg"]["h264/rk"] = "-c:v h264_rkmpp_encoder -g 50 -bf 0"
+        go2rtc_config["ffmpeg"][
+            "h264/rk"
+        ] = "-c:v h264_rkmpp -g 50 -bf 0 -profile:v high -level:v 4.1"
 
     if go2rtc_config["ffmpeg"].get("h265/rk") is None:
-        go2rtc_config["ffmpeg"]["h265/rk"] = "-c:v hevc_rkmpp_encoder -g 50 -bf 0"
+        go2rtc_config["ffmpeg"]["h265/rk"] = "-c:v hevc_rkmpp -g 50 -bf 0"
 
 for name in go2rtc_config.get("streams", {}):
     stream = go2rtc_config["streams"][name]
