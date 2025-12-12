@@ -1,0 +1,129 @@
+# Docker Compose for Frigate on Rockchip RK3588
+# Optimized for: 1-8 cameras, medium-far distance, people & vehicle detection
+# Hardware: RK3588 NPU (6 TOPS, 3 cores) + VPU (hardware video encoding)
+
+version: "3.9"
+
+services:
+  frigate:
+    container_name: frigate
+    # Use the Rockchip-optimized image (build with -rk suffix)
+    # Option 1: Use pre-built image (when available)
+    # image: ghcr.io/blakeblackshear/frigate:stable-rk
+    # Option 2: Build locally with Rockchip Dockerfile
+    build:
+      context: .
+      dockerfile: docker/rockchip/Dockerfile
+    restart: unless-stopped
+    
+    # REQUIRED for RK3588 NPU/VPU access
+    privileged: true
+    
+    # Shared memory for frame processing
+    # Increase if you have more cameras or higher resolution
+    # Formula: ~64MB per camera at 1080p
+    shm_size: "512mb"
+    
+    # Device access for hardware acceleration
+    devices:
+      # NPU device for RKNN inference
+      - /dev/dri:/dev/dri
+      # Mali GPU (optional, for additional acceleration)
+      - /dev/mali0:/dev/mali0
+      # Video devices for hardware encoding/decoding
+      - /dev/mpp_service:/dev/mpp_service
+      - /dev/rga:/dev/rga
+      # Optional: USB devices (for USB cameras if needed)
+      # - /dev/bus/usb:/dev/bus/usb
+    
+    # Volume mounts
+    volumes:
+      # Frigate configuration
+      - ./config:/config
+      # Media storage for recordings and clips
+      # IMPORTANT: Use fast storage (SSD recommended) to prevent frame drops
+      - ./storage:/media/frigate
+      # Timezone
+      - /etc/localtime:/etc/localtime:ro
+      # Device tree for SoC detection (required for RKNN)
+      - /proc/device-tree:/proc/device-tree:ro
+      # Optional: Custom RKNN models
+      # - ./models:/models/rknn
+    
+    # Ports
+    ports:
+      # Web UI
+      - "5000:5000"
+      # RTSP feeds (go2rtc)
+      - "8554:8554"
+      # WebRTC over TCP
+      - "8555:8555/tcp"
+      # WebRTC over UDP
+      - "8555:8555/udp"
+      # Optional: RTMP if enabled
+      # - "1935:1935"
+    
+    # Environment variables
+    environment:
+      # Enable Rockchip-specific features
+      - FRIGATE_ROCKCHIP=1
+      # FFmpeg libavformat version (for correct timeout parameter)
+      - LIBAVFORMAT_VERSION_MAJOR=60
+      # Optional: MQTT configuration (if using external MQTT)
+      # - FRIGATE_MQTT_HOST=mqtt
+      # - FRIGATE_MQTT_PORT=1883
+      # Optional: Timezone
+      - TZ=Asia/Jakarta
+    
+    # Resource limits (optional, adjust based on your setup)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 4G
+    #     reservations:
+    #       memory: 2G
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    
+    # Dependencies
+    depends_on:
+      - mqtt
+
+  # MQTT Broker (required for Frigate events)
+  mqtt:
+    container_name: frigate-mqtt
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    # Simple config without authentication (for local use)
+    command: mosquitto -c /mosquitto-no-auth.conf
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-i", "healthcheck", "-W", "3"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# Optional: External network for integration with other services
+# networks:
+#   default:
+#     name: frigate-network
+#     driver: bridge
