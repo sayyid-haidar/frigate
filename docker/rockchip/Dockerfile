@@ -18,14 +18,10 @@ RUN --mount=type=bind,from=rk-wheels,source=/rk-wheels,target=/deps/rk-wheels \
 WORKDIR /opt/frigate/
 COPY --from=rootfs / /
 
-# RKNN Runtime Libraries v2.3.0 (latest stable)
+# RKNN Runtime Libraries v2.3.0 (latest stable from airockchip)
 # These libraries provide NPU acceleration for RK3588/RK356x series
-ADD https://github.com/airockchip/rknn-toolkit2/releases/download/v2.3.0/librknnrt_rk356x.so /usr/lib/
-ADD https://github.com/airockchip/rknn-toolkit2/releases/download/v2.3.0/librknnrt_rk3588.so /usr/lib/
-
-# Fallback: Legacy runtime libraries (if above URLs fail during build)
-# ADD https://github.com/MarcA711/rknpu2/releases/download/v1.6.0/librknnrt_rk356x.so /usr/lib/
-# ADD https://github.com/MarcA711/rknpu2/releases/download/v1.6.0/librknnrt_rk3588.so /usr/lib/
+ADD https://raw.githubusercontent.com/airockchip/rknn-toolkit2/v2.3.0/rknpu2/runtime/Linux/librknn_api/aarch64/librknnrt.so /usr/lib/librknnrt_rk3588.so
+ADD https://raw.githubusercontent.com/airockchip/rknn-toolkit2/v2.3.0/rknpu2/runtime/Linux/librknn_api/aarch64/librknnrt.so /usr/lib/librknnrt_rk356x.so
 
 # Default YOLOv8n 320x320 models (ships with image for quick start)
 ADD https://github.com/MarcA711/rknn-models/releases/download/v1.5.2-rk3562/yolov8n-320x320-rk3562.rknn /models/rknn/

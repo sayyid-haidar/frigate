@@ -14,3 +14,6 @@ core
 web/dist/
 web/node_modules/
 web/.npm
+
+models/
+config/*.yaml

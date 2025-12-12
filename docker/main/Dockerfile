@@ -148,7 +148,12 @@ RUN wget -q https://bootstrap.pypa.io/get-pip.py -O get-pip.py \
     && python3 get-pip.py "pip"
 
 COPY docker/main/requirements.txt /requirements.txt
-RUN pip3 install -r /requirements.txt
+# nvidia-pyindex only works on amd64 (for TensorRT), skip on arm64
+RUN if [ "${TARGETARCH}" = "amd64" ]; then \
+        pip3 install -r /requirements.txt; \
+    else \
+        pip3 install scikit-build==0.17.*; \
+    fi
 
 COPY docker/main/requirements-wheels.txt /requirements-wheels.txt
 RUN pip3 wheel --wheel-dir=/wheels -r /requirements-wheels.txt

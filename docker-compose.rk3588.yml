@@ -7,13 +7,12 @@ version: "3.9"
 services:
   frigate:
     container_name: frigate
-    # Use the Rockchip-optimized image (build with -rk suffix)
-    # Option 1: Use pre-built image (when available)
-    # image: ghcr.io/blakeblackshear/frigate:stable-rk
-    # Option 2: Build locally with Rockchip Dockerfile
-    build:
-      context: .
-      dockerfile: docker/rockchip/Dockerfile
+    # Use locally built RK3588 image
+    image: frigate:latest-rk
+    # Or build from source:
+    # build:
+    #   context: .
+    #   dockerfile: docker/rockchip/Dockerfile
     restart: unless-stopped
     
     # REQUIRED for RK3588 NPU/VPU access
@@ -40,6 +39,7 @@ services:
     volumes:
       # Frigate configuration
       - ./config:/config
+      - ./models:/models
       # Media storage for recordings and clips
       # IMPORTANT: Use fast storage (SSD recommended) to prevent frame drops
       - ./storage:/media/frigate
@@ -52,14 +52,14 @@ services:
     
     # Ports
     ports:
-      # Web UI
-      - "5000:5000"
-      # RTSP feeds (go2rtc)
-      - "8554:8554"
-      # WebRTC over TCP
-      - "8555:8555/tcp"
+      # Web UI (changed from 5000 to 5001)
+      - "5001:5000"
+      # RTSP feeds (go2rtc) - changed from 8554 to 8564
+      - "8564:8554"
+      # WebRTC over TCP - changed from 8555 to 8565
+      - "8565:8555/tcp"
       # WebRTC over UDP
-      - "8555:8555/udp"
+      - "8565:8555/udp"
       # Optional: RTMP if enabled
       # - "1935:1935"
     
